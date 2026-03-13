@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pool Service Pro V13 Production</title>
+  <meta name="theme-color" content="#1d4ed8" />
+  <link rel="manifest" href="./manifest.json" />
+  <style>
+    :root{--bg:#eef3fb;--card:#fff;--text:#0f172a;--muted:#64748b;--border:#dbe4f0;--blue:#1d4ed8;--green:#0f766e;--red:#b91c1c;--soft:#f8fbff}
+    *{box-sizing:border-box;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif}
+    body{margin:0;background:var(--bg);color:var(--text)}
+    .app{display:grid;grid-template-columns:290px 1fr;min-height:100vh}
+    aside{background:#fff;border-right:1px solid var(--border);padding:18px;position:sticky;top:0;height:100vh;overflow:auto}
+    main{padding:18px}
+    h1,h2,h3,p{margin:0}
+    .muted{color:var(--muted)}
+    .nav{display:grid;gap:10px;margin-top:18px}
+    .nav button,.weekday button{width:100%;text-align:left;padding:14px 16px;border-radius:16px;font-size:16px}
+    .nav button.active,.weekday button.active{background:var(--blue);color:#fff;border-color:var(--blue)}
+    .section{display:none}.section.active{display:block}
+    .topbar{display:flex;justify-content:space-between;align-items:end;gap:12px;flex-wrap:wrap;margin-bottom:18px}
+    .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:14px}
+    .card{background:var(--card);border:1px solid var(--border);border-radius:22px;padding:16px}
+    .grid{display:grid;gap:16px}.two{grid-template-columns:repeat(auto-fit,minmax(340px,1fr))}.three{grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}
+    .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.between{display:flex;justify-content:space-between;align-items:center;gap:8px}
+    .big{font-size:30px;font-weight:700;margin-top:6px}
+    label{display:block;font-size:13px;color:var(--muted);margin-bottom:6px}
+    input,select,textarea,button{font:inherit}
+    input,select,textarea{width:100%;padding:14px;border:1px solid var(--border);border-radius:16px;background:#fff}
+    button{padding:12px 14px;border-radius:16px;border:1px solid var(--border);background:#fff;cursor:pointer}
+    button.primary{background:var(--blue);color:#fff;border-color:var(--blue)}
+    button.secondary{background:var(--green);color:#fff;border-color:var(--green)}
+    button.danger{background:#fff1f2;color:var(--red);border-color:#fecdd3}
+    button.small{padding:8px 10px;font-size:13px}
+    button.large{padding:16px 18px;font-size:16px}
+    .list{display:grid;gap:10px}
+    .item{background:#fff;border:1px solid var(--border);border-radius:18px;padding:14px}
+    .thumbs{display:flex;gap:10px;flex-wrap:wrap}
+    .thumb{position:relative}
+    .thumb img{width:110px;height:82px;object-fit:cover;border-radius:12px;border:1px solid var(--border)}
+    .thumb button{position:absolute;top:4px;right:4px;padding:4px 6px;font-size:11px}
+    .note{background:var(--soft);border:1px dashed var(--border);border-radius:16px;padding:12px;white-space:pre-wrap}
+    table{width:100%;border-collapse:collapse}
+    th,td{text-align:left;padding:12px;border-bottom:1px solid var(--border);vertical-align:top}
+    .right{text-align:right}
+    .stamp{font-size:12px;color:var(--muted);margin-top:6px}
+    .field-stop{padding:18px;border-radius:22px;border:1px solid var(--border);background:#fff}
+    .field-stop.current{background:#eff6ff;border-color:#93c5fd}
+    .field-actions{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-top:12px}
+    .field-actions button{padding:18px 12px;font-size:16px}
+    .weekday{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px}
+    @media (max-width: 980px){.app{grid-template-columns:1fr}aside{position:static;height:auto;border-right:none;border-bottom:1px solid var(--border)}}
+  </style>
+</head>
+<body>
+<div class="app">
+  <aside>
+    <h1>Pool Service Pro</h1>
+    <p class="muted">V13 Production</p>
+    <div style="margin-top:12px"><label>Invoice Month</label><input id="invoiceMonth" type="month"></div>
+    <div class="nav" id="nav"></div>
+    <div style="margin-top:16px" class="muted">Production build with backup, restore, weekly route view, GPS stamp, and monthly invoice run.</div>
+  </aside>
+  <main>
+    <div class="topbar">
+      <div><h2 id="pageTitle">Dashboard</h2><p class="muted" id="pageSubtitle">Production edition.</p></div>
+      <div class="row">
+        <button class="secondary large" onclick="startRouteMode()">Start Route</button>
+        <button class="primary large" onclick="showSection('visits')">Log Visit</button>
+      </div>
+    </div>
+    <div id="dashboardCards" class="cards"></div>
+    <section id="dashboard" class="section active"></section>
+    <section id="route" class="section"></section>
+    <section id="clients" class="section"></section>
+    <section id="visits" class="section"></section>
+    <section id="inventory" class="section"></section>
+    <section id="materials" class="section"></section>
+    <section id="invoices" class="section"></section>
+    <section id="payments" class="section"></section>
+    <section id="pricing" class="section"></section>
+  </main>
+</div>
+
+<script>
+const STORE = "pool_service_pro_v13_state";
+const DB_NAME = "pool_service_pro_v13_db";
+const DB_VERSION = 1;
+const NAV = [["dashboard","Dashboard"],["route","Field Route"],["clients","Clients"],["visits","Visits"],["inventory","Inventory"],["materials","Materials"],["invoices","Invoices"],["payments","Payments"],["pricing","Pricing"]];
+const DAYS = ["Monday","Tuesday","Wednesday","Thursday","Friday"];
+const QUICK = ["Chlorine Tabs","Shock","Muriatic Acid","Stabilizer","Algaecide"];
+const seed = {
+  active:"dashboard", invoiceMonth:"2026-03", selectedClientId:2, routeDay:"Monday", showClosed:false,
+  routeMode:{active:false,index:0,ids:[]}, visitPrefillClientId:2, sent:{},
+  clients:[
+    {id:1,name:"Smith Residence",address:"14 Oak Ln",phone:"2055551111",weeklyRate:45,extraLaborRate:65,status:"Closed",routeDay:"Monday",routeOrder:2,notes:"Dog in backyard on Fridays."},
+    {id:2,name:"Carter Family",address:"221 Pine Dr",phone:"2055552222",weeklyRate:62,extraLaborRate:75,status:"Open",routeDay:"Monday",routeOrder:1,notes:"Includes spa check each visit."},
+    {id:3,name:"Barnes Property",address:"900 Hill St",phone:"2055553333",weeklyRate:52,extraLaborRate:70,status:"Seasonal",routeDay:"Monday",routeOrder:3,notes:"Heavy leaf load after storms."}
+  ],
+  inventory:[
+    {id:1,item:"Chlorine Tabs",type:"chemical",unit:"lb",stock:40,cost:2.10,charge:4.25},
+    {id:2,item:"Muriatic Acid",type:"chemical",unit:"gal",stock:10,cost:4.00,charge:8.00},
+    {id:3,item:"Stabilizer",type:"chemical",unit:"lb",stock:16,cost:5.20,charge:9.00},
+    {id:4,item:"Skimmer Basket",type:"part",unit:"ea",stock:8,cost:6.00,charge:14.00},
+    {id:5,item:"Algaecide",type:"chemical",unit:"qt",stock:6,cost:8.00,charge:14.00},
+    {id:6,item:"Shock",type:"chemical",unit:"bag",stock:12,cost:4.50,charge:8.50}
+  ],
+  payments:[]
+};
+
+let state = loadState(), visits = [], db = null, geoPermissionState = "unknown";
+let visitDraft = {extras:[], beforePhotos:[], afterPhotos:[], gps:null};
+
+function loadState(){ try { return JSON.parse(localStorage.getItem(STORE)) || structuredClone(seed); } catch { return structuredClone(seed); } }
+function saveState(){ localStorage.setItem(STORE, JSON.stringify(state)); }
+function commit(){ saveState(); render(); }
+function currency(n){ return new Intl.NumberFormat("en-US",{style:"currency",currency:"USD"}).format(Number(n||0)); }
+function monthKey(d){ return String(d).slice(0,7); }
+function clientById(id){ return state.clients.find(c=>c.id===Number(id)); }
+function billedBase(c){ return c.status==="Closed" ? 0 : Number(c.weeklyRate||0)*52/12; }
+function sentKey(id){ return `${state.invoiceMonth}:${id}`; }
+function routeClients(day=state.routeDay){ let list=[...state.clients].filter(c=>c.routeDay===day).sort((a,b)=>a.routeOrder-b.routeOrder); if(!state.showClosed) list=list.filter(c=>c.status!=="Closed"); return list; }
+function currentRouteClient(){ return state.routeMode.active ? clientById(state.routeMode.ids[state.routeMode.index]) : null; }
+function showSection(id){ state.active=id; commit(); }
+function startRouteMode(){ state.routeMode={active:true,index:0,ids:routeClients().map(c=>c.id)}; state.active='route'; commit(); }
+function openVisitFromRoute(){ const c=currentRouteClient(); if(!c) return; state.visitPrefillClientId=c.id; state.active='visits'; commit(); }
+function nextPool(){ if(!state.routeMode.active) return; if(state.routeMode.index < state.routeMode.ids.length-1) state.routeMode.index += 1; else state.routeMode.active=false; state.active='route'; commit(); }
+function moveRoute(clientId, direction){ const ordered=[...state.clients].sort((a,b)=>a.routeOrder-b.routeOrder); const idx=ordered.findIndex(c=>c.id===clientId), swap=idx+direction; if(idx<0||swap<0||swap>=ordered.length) return; const a=ordered[idx], b=ordered[swap], t=a.routeOrder; a.routeOrder=b.routeOrder; b.routeOrder=t; commit(); }
+function optimizeRoute(){ const day=[...state.clients].filter(c=>c.routeDay===state.routeDay).sort((a,b)=>a.address.localeCompare(b.address)); day.forEach((c,i)=>c.routeOrder=i+1); commit(); alert("Route reordered by address text."); }
+function mapsUrl(address){ return "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(address||""); }
+function openClientMap(address){ window.open(mapsUrl(address), "_blank"); }
+
+function invoiceForClient(c){
+  const mv=visits.filter(v=>v.clientId===c.id&&monthKey(v.date)===state.invoiceMonth);
+  const materials=mv.reduce((s,v)=>s+v.extras.reduce((a,e)=>a+Number(e.charge||0),0),0);
+  const labor=mv.reduce((s,v)=>s+Number(v.extraLaborHours||0)*Number(c.extraLaborRate||0),0);
+  const paid=state.payments.filter(p=>p.clientId===c.id&&p.invoiceMonth===state.invoiceMonth).reduce((s,p)=>s+Number(p.amount||0),0);
+  const base=billedBase(c), total=base+materials+labor;
+  return {base,materials,labor,paid,total,balance:total-paid,visitCount:mv.length};
+}
+function shortInvoice(c){ const inv=invoiceForClient(c); return `${c.name}\n\n${state.invoiceMonth} Pool Service\n\nMonthly Service: ${currency(inv.base)}\nChemicals / Parts / Extras: ${currency(inv.materials + inv.labor)}\n\nTotal Due: ${currency(inv.total)}\nThank you!`; }
+async function copyText(text){ try { await navigator.clipboard.writeText(text); alert("Copied to clipboard"); } catch { prompt("Copy this text:", text); } }
+function sendSms(id){ const c=clientById(id); state.sent[sentKey(id)]=true; saveState(); const phone=(c.phone||"").replace(/[^0-9]/g,""); window.location.href=`sms:${phone}?body=${encodeURIComponent(shortInvoice(c))}`; render(); }
+function generateAllInvoices(){ state.clients.forEach(c=>{ state.sent[sentKey(c.id)] = false; }); saveState(); render(); alert("Monthly invoices generated for all clients."); }
+
+function openDb(){ return new Promise((resolve,reject)=>{ const req=indexedDB.open(DB_NAME, DB_VERSION); req.onupgradeneeded=e=>{ const d=e.target.result; if(!d.objectStoreNames.contains("visits")) d.createObjectStore("visits",{keyPath:"id"}); }; req.onsuccess=()=>{ db=req.result; resolve(db); }; req.onerror=()=>reject(req.error); }); }
+function getAllVisits(){ return new Promise((resolve,reject)=>{ if(!db) return resolve([]); const req=db.transaction("visits","readonly").objectStore("visits").getAll(); req.onsuccess=()=>resolve((req.result||[]).sort((a,b)=>String(b.savedAt||b.date).localeCompare(String(a.savedAt||a.date)))); req.onerror=()=>reject(req.error); }); }
+function putVisit(v){ return new Promise((resolve,reject)=>{ const req=db.transaction("visits","readwrite").objectStore("visits").put(v); req.onsuccess=()=>resolve(true); req.onerror=()=>reject(req.error); }); }
+function clearVisitsDb(){ return new Promise((resolve,reject)=>{ const req=db.transaction("visits","readwrite").objectStore("visits").clear(); req.onsuccess=()=>resolve(true); req.onerror=()=>reject(req.error); }); }
+
+async function refreshGeoPermission(){
+  try{
+    if(navigator.permissions && navigator.permissions.query){
+      const result = await navigator.permissions.query({name:"geolocation"});
+      geoPermissionState = result.state;
+      result.onchange = ()=>{ geoPermissionState=result.state; render(); };
+    }
+  }catch(e){ geoPermissionState = "unknown"; }
+}
+function captureGps(){
+  return new Promise(resolve=>{
+    if(!('geolocation' in navigator) || !window.isSecureContext){ resolve(null); return; }
+    navigator.geolocation.getCurrentPosition(
+      pos=>resolve({lat:pos.coords.latitude, lon:pos.coords.longitude, accuracy:pos.coords.accuracy}),
+      ()=>resolve(null),
+      {enableHighAccuracy:true, timeout:7000, maximumAge:60000}
+    );
+  });
+}
+function visitStamp(v){
+  const bits=[]; 
+  if(v.savedAt) bits.push(new Date(v.savedAt).toLocaleString());
+  if(v.gps&&v.gps.lat!=null) bits.push(`GPS ${v.gps.lat.toFixed(5)}, ${v.gps.lon.toFixed(5)} ±${Math.round(v.gps.accuracy||0)}m`);
+  else if(v.gpsStatus) bits.push(v.gpsStatus);
+  return bits.join(" • ") || "No verification stamp";
+}
+function deductInventory(extras){
+  extras.forEach(extra=>{
+    const idx=state.inventory.findIndex(i=>i.item===extra.name);
+    if(idx>=0){
+      const current=Number(state.inventory[idx].stock||0);
+      state.inventory[idx].stock=Number((current-Number(extra.qty||0)).toFixed(2));
+    }
+  });
+}
+async function exportBackup(){
+  const data = {state, visits, exportedAt:new Date().toISOString(), version:"v13"};
+  const blob = new Blob([JSON.stringify(data,null,2)], {type:"application/json"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `pool_service_pro_backup_${new Date().toISOString().slice(0,10)}.json`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+async function importBackup(file){
+  const text = await file.text();
+  const data = JSON.parse(text);
+  if(!data.state || !Array.isArray(data.visits)) throw new Error("Invalid backup file");
+  state = data.state;
+  saveState();
+  await clearVisitsDb();
+  for(const v of data.visits){ await putVisit(v); }
+  visits = await getAllVisits();
+  render();
+  alert("Backup restored.");
+}
+
+function renderNav(){ document.getElementById('nav').innerHTML = NAV.map(([id,label])=>`<button class="${state.active===id?'active':''}" onclick="showSection('${id}')">${label}</button>`).join(''); }
+function renderSections(){ NAV.forEach(([id])=>document.getElementById(id).classList.toggle('active', state.active===id)); }
+function renderHeader(){
+  document.getElementById('invoiceMonth').value=state.invoiceMonth;
+  document.getElementById('invoiceMonth').onchange=e=>{state.invoiceMonth=e.target.value; commit();};
+  const map={dashboard:["Dashboard","Production edition"],route:["Field Route","Fast next-stop workflow"],clients:["Clients","Client records and timeline"],visits:["Visits","Camera, GPS stamp, and auto-deduct inventory"],inventory:["Inventory","Stock, edit, delete"],materials:["Materials","Revenue and usage"],invoices:["Invoices","Monthly run and SMS billing"],payments:["Payments","Ledger"],pricing:["Pricing","Quick rate updates"]};
+  document.getElementById('pageTitle').textContent=map[state.active][0];
+  document.getElementById('pageSubtitle').textContent=map[state.active][1];
+}
+function renderCards(){
+  const mv=visits.filter(v=>monthKey(v.date)===state.invoiceMonth);
+  const extras=mv.reduce((s,v)=>s+v.extras.reduce((a,e)=>a+Number(e.charge||0),0),0);
+  const paid=state.payments.filter(p=>p.invoiceMonth===state.invoiceMonth).reduce((s,p)=>s+Number(p.amount||0),0);
+  document.getElementById('dashboardCards').innerHTML=[["Active Clients",state.clients.length],["Visits Logged",visits.length],["Current Route Stops",routeClients().length],["Extra Charges",currency(extras)],["Payments Collected",currency(paid)]].map(([l,v])=>`<div class="card"><div class="muted">${l}</div><div class="big">${v}</div></div>`).join('');
+}
+function renderDashboard(){
+  document.getElementById('dashboard').innerHTML=`<div class="grid two"><div class="card"><h3>Production Tools</h3><div class="field-actions"><button class="primary" onclick="startRouteMode()">Start Route</button><button class="secondary" onclick="generateAllInvoices()">Generate Invoices</button><button onclick="exportBackup()">Backup Data</button></div><div class="note" style="margin-top:12px">Location permission: ${geoPermissionState}\nSecure context: ${window.isSecureContext ? "Yes" : "No"}</div></div><div class="card"><h3>Restore Backup</h3><input id="backupInput" type="file" accept="application/json" /><div class="stamp" style="margin-top:10px">Restore clients, visits, inventory, payments, and settings.</div></div></div>`;
+  const input = document.getElementById('backupInput');
+  input.onchange = async e=>{ if(e.target.files[0]) await importBackup(e.target.files[0]); };
+}
+function renderRoute(){
+  const stops=routeClients(), current=currentRouteClient();
+  document.getElementById('route').innerHTML=`<div class="card" style="margin-bottom:16px"><h3>Weekly Route View</h3><div class="weekday" style="margin-top:12px">${DAYS.map(day=>`<button class="${state.routeDay===day?'active':''}" onclick="state.routeDay='${day}'; state.routeMode={active:false,index:0,ids:[]}; commit()">${day}</button>`).join('')}</div></div><div class="grid two"><div class="card"><div class="between"><div><h3>Field Route Screen</h3><p class="muted">Built for fast work in the field.</p></div><div class="row"><button class="secondary" onclick="optimizeRoute()">Optimize</button><button class="primary" onclick="startRouteMode()">Start Route</button></div></div>${current ? `<div class="field-stop current" style="margin-top:12px"><div class="big" style="font-size:22px">${current.name}</div><div class="muted">${current.address}</div><div class="field-actions"><button class="primary" onclick="openVisitFromRoute()">Log Visit</button><button onclick="openClientMap('${(current.address||'').replace(/'/g,"\\\\'")}')">Navigate</button><button onclick="nextPool()">Next Pool</button></div></div>` : '<div class="item muted" style="margin-top:12px">No active route stop. Tap Start Route.</div>'}<div class="list" style="margin-top:12px">${stops.map((c,idx)=>`<div class="field-stop ${current&&current.id===c.id?'current':''}"><div class="between"><div><strong>${idx+1}. ${c.name}</strong><div class="muted">${c.address}</div></div><div class="row"><button class="small" onclick="openClientMap('${(c.address||'').replace(/'/g,"\\\\'")}')">Maps</button><button class="small" onclick="moveRoute(${c.id},-1)">Up</button><button class="small" onclick="moveRoute(${c.id},1)">Down</button></div></div></div>`).join('') || '<div class="item muted">No route stops.</div>'}</div></div><div class="card"><h3>Route Notes</h3><div class="list" style="margin-top:12px"><div class="item">Save Visit & Next Pool returns to this screen.</div><div class="item">Navigate opens Google Maps for the stop.</div><div class="item">Weekly buttons let you switch service days quickly.</div></div></div></div>`;
+}
+function renderClients(){
+  const c=clientById(state.selectedClientId)||state.clients[0];
+  const history=visits.filter(v=>v.clientId===c.id).sort((a,b)=>String(b.savedAt||b.date).localeCompare(String(a.savedAt||a.date)));
+  document.getElementById('clients').innerHTML=`<div class="grid two"><div class="card"><h3>Clients</h3><div class="list" style="margin-top:12px">${state.clients.map(x=>`<div class="item" style="cursor:pointer" onclick="state.selectedClientId=${x.id}; commit()"><strong>${x.name}</strong><div class="muted">${x.address}</div></div>`).join('')}</div></div><div class="card"><h3>${c.name}</h3><div class="muted">${c.address}</div><div class="note" style="margin-top:12px">${c.notes||"No notes"}</div><div class="row" style="margin-top:12px"><button onclick="openClientMap('${(c.address||'').replace(/'/g,"\\\\'")}')">Open in Maps</button></div></div></div><div class="card" style="margin-top:16px"><h3>Visit Timeline</h3><div class="list" style="margin-top:12px">${history.map(v=>`<div class="item"><strong>${v.date}</strong><div class="muted">${v.jobType}</div><div class="stamp">${visitStamp(v)}</div><div style="margin-top:8px">${v.notes||'—'}</div>${(v.beforePhotos||[]).length?`<div style="margin-top:10px"><strong>Before</strong><div class="thumbs">${v.beforePhotos.map(p=>`<div class="thumb"><img src="${p}"></div>`).join('')}</div></div>`:''}${(v.afterPhotos||[]).length?`<div style="margin-top:10px"><strong>After</strong><div class="thumbs">${v.afterPhotos.map(p=>`<div class="thumb"><img src="${p}"></div>`).join('')}</div></div>`:''}</div>`).join('') || '<div class="item muted">No service history yet.</div>'}</div></div>`;
+}
+function renderVisitDraft(){
+  const extrasBox=document.getElementById('visitExtras'), beforeBox=document.getElementById('beforePreview'), afterBox=document.getElementById('afterPreview');
+  if(!extrasBox||!beforeBox||!afterBox) return;
+  extrasBox.innerHTML=visitDraft.extras.length?visitDraft.extras.map((e,i)=>`<div class="item between"><div>${e.name} (${e.qty})</div><button class="danger small" type="button" onclick="removeExtra(${i})">Remove</button></div>`).join(''):'<div class="muted">No extras yet.</div>';
+  beforeBox.innerHTML=visitDraft.beforePhotos.map((p,i)=>`<div class="thumb"><img src="${p}"><button class="danger small" type="button" onclick="removeBefore(${i})">X</button></div>`).join('');
+  afterBox.innerHTML=visitDraft.afterPhotos.map((p,i)=>`<div class="thumb"><img src="${p}"><button class="danger small" type="button" onclick="removeAfter(${i})">X</button></div>`).join('');
+}
+window.removeExtra=i=>{visitDraft.extras.splice(i,1);renderVisitDraft();};
+window.removeBefore=i=>{visitDraft.beforePhotos.splice(i,1);renderVisitDraft();};
+window.removeAfter=i=>{visitDraft.afterPhotos.splice(i,1);renderVisitDraft();};
+
+function renderVisits(){
+  const pre=state.visitPrefillClientId||state.clients[0]?.id;
+  document.getElementById('visits').innerHTML=`<div class="grid two"><div class="card"><h3>Log Visit</h3><form id="visitForm"><div class="grid two"><div><label>Client</label><select name="clientId">${state.clients.map(c=>`<option value="${c.id}" ${c.id===Number(pre)?'selected':''}>${c.name}</option>`).join('')}</select></div><div><label>Date</label><input type="date" name="date" value="${state.invoiceMonth}-07"></div></div><div class="grid two" style="margin-top:12px"><div><label>Job Type</label><select name="jobType">${["Weekly Service","Spring Opening","Winter Closing","Winter Check","Repair Visit"].map(v=>`<option>${v}</option>`).join('')}</select></div><div><label>Extra Labor Hours</label><input type="number" step="0.25" name="extraLaborHours" value="0"></div></div><div style="margin-top:12px"><label>Notes</label><input name="notes"></div><div class="card" style="margin-top:12px"><div class="grid two"><div><label>Inventory Item</label><select id="extraItem">${state.inventory.map(i=>`<option value="${i.id}">${i.item}</option>`).join('')}</select></div><div><label>Quantity</label><input id="extraQty" type="number" step="0.25" value="1"></div></div><div class="row" style="margin-top:12px" id="quickChem"></div><div class="row" style="margin-top:12px"><button type="button" class="secondary" id="addExtraBtn">Add Item</button></div><div id="visitExtras" class="list" style="margin-top:12px"></div><div class="stamp" style="margin-top:10px">Saving a visit auto-deducts these extras from inventory stock.</div></div><div class="card" style="margin-top:12px"><div class="grid two"><div><label>Before Photos</label><input id="beforeInput" type="file" accept="image/*" capture="environment" multiple><div id="beforePreview" class="thumbs" style="margin-top:10px"></div></div><div><label>After Photos</label><input id="afterInput" type="file" accept="image/*" capture="environment" multiple><div id="afterPreview" class="thumbs" style="margin-top:10px"></div></div></div></div><div class="note" style="margin-top:12px">GPS stamp works best after hosting on HTTPS and installing as an app.</div><div class="row" style="margin-top:12px"><button class="primary" type="submit" id="saveBtn">Save Visit</button>${state.routeMode.active?'<button class="secondary" type="button" id="saveNextBtn">Save Visit & Next Pool</button>':''}<button type="button" id="clearDraftBtn">Clear Draft</button></div><div id="saveStatus" class="muted" style="margin-top:12px"></div></form></div><div class="card"><h3>Field Workflow</h3><div class="list" style="margin-top:12px"><div class="item">Add common chemicals with one tap.</div><div class="item">Take before/after photos.</div><div class="item">Save Visit & Next Pool returns to the route screen.</div></div></div></div>`;
+
+  const quick = document.getElementById('quickChem');
+  QUICK.forEach(name=>{
+    const item = state.inventory.find(i=>i.item===name);
+    if(!item) return;
+    const b = document.createElement('button');
+    b.type='button'; b.className='small'; b.textContent = '+ ' + name;
+    b.onclick = ()=>{ visitDraft.extras.push({type:item.type,name:item.item,qty:1,charge:Number(item.charge),cost:Number(item.cost)}); renderVisitDraft(); };
+    quick.appendChild(b);
+  });
+
+  document.getElementById('addExtraBtn').onclick=()=>{ const item=state.inventory.find(i=>i.id===Number(document.getElementById('extraItem').value)); const qty=Number(document.getElementById('extraQty').value||1); visitDraft.extras.push({type:item.type,name:item.item,qty,charge:Number(item.charge)*qty,cost:Number(item.cost)*qty}); renderVisitDraft(); };
+  function readFiles(files,target){ Array.from(files||[]).forEach(file=>{ const reader=new FileReader(); reader.onload=ev=>{ target.push(ev.target.result); renderVisitDraft(); }; reader.readAsDataURL(file); }); }
+  document.getElementById('beforeInput').onchange=e=>readFiles(e.target.files, visitDraft.beforePhotos);
+  document.getElementById('afterInput').onchange=e=>readFiles(e.target.files, visitDraft.afterPhotos);
+  document.getElementById('clearDraftBtn').onclick=()=>{ visitDraft={extras:[],beforePhotos:[],afterPhotos:[],gps:null}; document.getElementById('visitForm').reset(); renderVisitDraft(); };
+
+  async function doSave(goNext){
+    const status=document.getElementById('saveStatus'), saveBtn=document.getElementById('saveBtn');
+    saveBtn.disabled=true; status.textContent='Saving visit...';
+    try{
+      const gps=await captureGps();
+      const fd=new FormData(document.getElementById('visitForm'));
+      const extras=JSON.parse(JSON.stringify(visitDraft.extras));
+      const visit={id:Date.now(),clientId:Number(fd.get('clientId')),date:fd.get('date'),jobType:fd.get('jobType'),notes:fd.get('notes'),extraLaborHours:Number(fd.get('extraLaborHours')||0),extras,beforePhotos:[...visitDraft.beforePhotos],afterPhotos:[...visitDraft.afterPhotos],savedAt:new Date().toISOString(),gps,gpsStatus:gps?`GPS captured ±${Math.round(gps.accuracy||0)}m`:`GPS ${geoPermissionState}`};
+      await putVisit(visit);
+      deductInventory(extras);
+      visits=await getAllVisits();
+      visitDraft={extras:[],beforePhotos:[],afterPhotos:[],gps:null};
+      status.textContent='Visit saved. Inventory updated.';
+      if(goNext&&state.routeMode.active){ nextPool(); return; }
+      commit();
+    }catch(err){
+      console.error(err); status.textContent='Save failed.'; saveBtn.disabled=false; alert('Save failed.');
+    }
+  }
+  document.getElementById('visitForm').onsubmit=e=>{ e.preventDefault(); doSave(false); };
+  const nextBtn=document.getElementById('saveNextBtn'); if(nextBtn) nextBtn.onclick=()=>doSave(true);
+  renderVisitDraft();
+}
+function editInventory(id){ showSection('inventory'); setTimeout(()=>{ const item=state.inventory.find(x=>x.id===id), form=document.getElementById('itemForm'); if(!item||!form) return; form.id.value=item.id; form.item.value=item.item; form.type.value=item.type; form.unit.value=item.unit||''; form.stock.value=item.stock||0; form.cost.value=item.cost||0; form.charge.value=item.charge||0; document.getElementById('inventoryFormTitle').textContent='Edit Material'; },0); }
+function deleteInventory(id){ if(!confirm('Delete this inventory item?')) return; state.inventory=state.inventory.filter(x=>x.id!==id); commit(); }
+function resetInventoryForm(){ showSection('inventory'); }
+function renderInventory(){
+  document.getElementById('inventory').innerHTML=`<div class="grid two"><div class="card" style="overflow:auto"><div class="between"><h3>Inventory</h3><div class="muted">Stock updates from visit usage</div></div><table><thead><tr><th>Item</th><th>Type</th><th>Unit</th><th>Stock</th><th>Cost</th><th>Charge</th><th>Actions</th></tr></thead><tbody>${state.inventory.map(i=>`<tr><td>${i.item}</td><td>${i.type}</td><td>${i.unit||''}</td><td>${i.stock||0}</td><td>${currency(i.cost)}</td><td>${currency(i.charge)}</td><td><div class="row"><button class="small" onclick="editInventory(${i.id})">Edit</button><button class="small danger" onclick="deleteInventory(${i.id})">Delete</button></div></td></tr>`).join('')}</tbody></table></div><div class="card" style="max-width:420px;justify-self:start"><h3 id="inventoryFormTitle">Add Material</h3><form id="itemForm"><input type="hidden" name="id" value=""><div style="margin-top:12px"><label>Item Name</label><input name="item"></div><div style="margin-top:12px"><label>Type</label><select name="type"><option value="chemical">chemical</option><option value="part">part</option></select></div><div class="grid two" style="margin-top:12px"><div><label>Unit</label><input name="unit" value="ea"></div><div><label>Stock</label><input type="number" step="0.01" name="stock" value="0"></div></div><div class="grid two" style="margin-top:12px"><div><label>Cost</label><input type="number" step="0.01" name="cost" value="0"></div><div><label>Charge</label><input type="number" step="0.01" name="charge" value="0"></div></div><div class="row" style="margin-top:12px"><button class="primary" type="submit">Save Material</button><button type="button" onclick="resetInventoryForm()">Clear</button></div></form></div></div>`;
+  document.getElementById('itemForm').onsubmit=e=>{ e.preventDefault(); const fd=new FormData(e.target); const id=Number(fd.get('id')||0); const item={id:id||Date.now(), item:fd.get('item'), type:fd.get('type'), unit:fd.get('unit'), stock:Number(fd.get('stock')||0), cost:Number(fd.get('cost')||0), charge:Number(fd.get('charge')||0)}; const idx=state.inventory.findIndex(x=>x.id===item.id); if(idx>=0) state.inventory[idx]=item; else state.inventory.push(item); commit(); };
+}
+function renderMaterials(){
+  const mv=visits.filter(v=>monthKey(v.date)===state.invoiceMonth), chem=mv.flatMap(v=>v.extras.filter(e=>e.type==="chemical")), chemRevenue=chem.reduce((s,e)=>s+Number(e.charge||0),0), chemCost=chem.reduce((s,e)=>s+Number(e.cost||0),0), usage={};
+  chem.forEach(e=>{ usage[e.name]=(usage[e.name]||0)+Number(e.qty||0); });
+  document.getElementById('materials').innerHTML=`<div class="cards"><div class="card"><div class="muted">Chemical Revenue</div><div class="big">${currency(chemRevenue)}</div></div><div class="card"><div class="muted">Chemical Cost</div><div class="big">${currency(chemCost)}</div></div><div class="card"><div class="muted">Chemical Margin</div><div class="big">${currency(chemRevenue-chemCost)}</div></div></div><div class="card" style="margin-top:16px"><h3>Chemical Usage Report</h3><div class="list" style="margin-top:12px">${Object.keys(usage).length?Object.entries(usage).map(([name,qty])=>`<div class="item between"><div>${name}</div><strong>${qty}</strong></div>`).join(''):'<div class="item muted">No chemical usage this month yet.</div>'}</div></div>`;
+}
+function renderInvoices(){
+  document.getElementById('invoices').innerHTML=`<div class="card"><div class="between"><div><h3>Monthly Invoices</h3><p class="muted">Run, copy, and send from here.</p></div><div class="row"><button class="secondary" onclick="generateAllInvoices()">Generate All Invoices</button></div></div></div><div class="list" style="margin-top:12px">${state.clients.map(c=>{ const inv=invoiceForClient(c); return `<div class="item"><div class="between"><div><strong>${c.name}</strong><div class="muted">${c.address}</div></div><span>${state.sent[sentKey(c.id)]?'Sent':'Ready'}</span></div><table style="margin-top:10px"><tbody><tr><td>Visit count</td><td class="right">${inv.visitCount}</td></tr><tr><td>Monthly base</td><td class="right">${currency(inv.base)}</td></tr><tr><td>Extras</td><td class="right">${currency(inv.materials + inv.labor)}</td></tr><tr><td>Balance</td><td class="right"><strong>${currency(inv.balance)}</strong></td></tr></tbody></table><div class="row" style="margin-top:10px"><button class="small" onclick="copyText(shortInvoice(clientById(${c.id})))">Copy</button><button class="small primary" onclick="sendSms(${c.id})">Send SMS</button></div></div>`; }).join('')}</div>`;
+}
+function renderPayments(){ document.getElementById('payments').innerHTML=`<div class="card"><h3>Payments</h3><div class="muted">Ledger ready for the next pass.</div></div>`; }
+function renderPricing(){ document.getElementById('pricing').innerHTML=`<div class="card"><h3>Pricing</h3><div class="muted">Quick rate updates ready for the next pass.</div></div>`; }
+
+async function init(){ try{ await openDb(); visits=await getAllVisits(); await refreshGeoPermission(); }catch(err){ console.error(err); } render(); }
+function render(){ renderNav(); renderSections(); renderHeader(); renderCards(); renderDashboard(); renderRoute(); renderClients(); renderVisits(); renderInventory(); renderMaterials(); renderInvoices(); renderPayments(); renderPricing(); }
+init();
+</script>
+</body>
+</html>
